@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+
+  <!-- build:css styles/vendor.css -->
+  <!-- bower:css -->
+  <link rel="stylesheet" href="bower_components/font-awesome/css/font-awesome.css" />
+  <!-- endbower -->
+  <!-- endbuild -->
+
+  <!-- build:css styles/main.css -->
+  <link href="styles/main.css" rel="stylesheet">
+  <!-- endbuild -->
+</head>
+<body>
+<script id="timesheet-template" type="text/x-mustache-template">
+  <div class="timesheet">
+    <h1>Timesheet report</h1>
+    <h3>Tổng thời gian tính lương: {{totalSmartTime}}h / Giờ chuẩn {{requiredWorkTime}}h ({{note}}h)</h3>
+    <h3>Số lần quên punch: {{forgotPunchCount}}
+      {{#forgotPunchCount}}- Dự tính sau khi recover: {{totalAfterRecover}}h ({{noteAfterRecover}}h){{/forgotPunchCount}}</h3>
+    <h3>Tổng thời gian cống hiến: {{totalStupidTime}}h</h3>
+    <table>
+      <tr>
+        <th>STT</th>
+        <th>Ngày</th>
+        <th>Punch In</th>
+        <th>Punch Out</th>
+        <th>Thời gian tính lương</th>
+        <th>Thời gian cống hiến</th>
+      </tr>
+      {{#punchtimes}}
+      <tr {{#forgotPunch}}class="forgot-punch"{{/forgotPunch}}>
+        <td>{{count}}</td>
+        <td>{{getDate}}</td>
+        <td>{{{getPunchIn}}}</td>
+        <td>{{{getPunchOut}}}</td>
+        <td>{{getSmartTime}}</td>
+        <td>{{getStupidTime}}</td>
+      </tr>
+      {{/punchtimes}}
+    </table>
+  </div>
+</script>
+
+<div id="content">
+  <div style="text-align: center">
+    <i class="fa fa-spinner fa-spin fa-2"></i>
+  </div>
+</div>
+
+  <!-- build:js scripts/vendor.js -->
+  <!-- bower:js -->
+  <script src="bower_components/jquery/dist/jquery.js"></script>
+  <script src="bower_components/promise-polyfill/Promise.js"></script>
+  <script src="bower_components/underscore/underscore.js"></script>
+  <script src="bower_components/jquery.cookie/jquery.cookie.js"></script>
+  <script src="bower_components/moment/moment.js"></script>
+  <script src="bower_components/mustache/mustache.js"></script>
+  <!-- endbower -->
+  <!-- endbuild -->
+
+  <!-- build:js scripts/report.js -->
+  <script src="scripts/report.js"></script>
+  <!-- endbuild -->
+</body>
+</html>

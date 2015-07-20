@@ -1,0 +1,9 @@
+td, th {border: 1px solid black; text-align: center}
+th {font-weight: bold}
+tr.forgot-punch td {color: red; font-weight: bold}
+
+.fa-2 { font-size: 2em; }
+.fa-3 { font-size: 4em; }
+.fa-4 { font-size: 7em; }
+.fa-5 { font-size: 12em; }
+.fa-6 { font-size: 20em; }
