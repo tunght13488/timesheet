@@ -27,31 +27,52 @@ PunchTime.prototype.calculateWorkTime = function () {
     return;
   }
 
-  var timeIn = this.timeIn;
-  var timeOut = this.timeOut;
-  var workStart = moment(timeIn).hour(7).minute(30).second(0);
-  var stupidTime1 = workStart.diff(timeIn, 'hours', true);
-  if (stupidTime1 < 0) {
-    stupidTime1 = 0;
-  }
-  workStart = moment.max(workStart, timeIn); // worktime count from 7:30 AM
+  var timeIn = this.timeIn,
+    timeOut = this.timeOut,
+    workStart = moment().hour(7).minute(30).second(0),
+    lunchStart = moment().hour(12).minute(0).second(0),
+    lunchEnd = moment().hour(13).minutes(30).second(0),
+    lunchTime,
+    workEnd = moment().hour(18).minutes(30).second(0),
+    stupidTimeBefore = Math.max(0, workStart.diff(timeIn, 'hours', true)),
+    stupidTimeAfter = Math.max(0, timeOut.diff(workEnd, 'hours', true)),
+    calculatedWorkStart = moment.max(workStart, timeIn), // worktime count from 7:30 AM
+    calculatedWorkEnd = moment.min(workEnd, timeOut); // worktime count to 6:30 PM
 
-  var workEnd = moment(timeIn).hour(18).minutes(30).second(0);
-  workEnd = moment.min(workEnd, timeOut); // worktime count to 6:30 PM
-  var stupidTime2 = timeOut.diff(workEnd, 'hours', true);
-  if (stupidTime2 < 0) {
-    stupidTime2 = 0;
-  }
+  var diffInHour = function (start, end) {
+    return end.diff(start, 'hours', true);
+  };
 
-  var lunchBreak = moment(timeIn).hour(12).minute(0).second(0);
-  var lunchTime = workStart.isBefore(lunchBreak) ? 1.15 : (1.15 - workStart.diff(lunchBreak, 'hours', true));
-  if (lunchTime < 0) {
+  // In before lunch start
+  //   - Out before lunch start: 0
+  //   - Out before lunch end: out - start
+  //   - Out after lunch end: end - start
+  // In before lunch end
+  //   - Out before lunch end: out - in
+  //   - Out after lunch end: end - in 
+  // In after lunch end: 0
+  if (calculatedWorkStart.isBefore(lunchStart)) {
+    if (calculatedWorkEnd.isBefore(lunchStart)) {
+      lunchTime = 0;
+    } else if (calculatedWorkEnd.isBefore(lunchEnd)) {
+      lunchTime = diffInHour(calculatedWorkEnd, lunchEnd);
+    } else {
+      lunchTime = diffInHour(lunchStart, lunchEnd);
+    }
+  } else if (calculatedWorkStart.isBefore(lunchEnd)) {
+    if (calculatedWorkEnd.isBefore(lunchEnd)) {
+      lunchTime = diffInHour(calculatedWorkStart, calculatedWorkEnd);
+    } else {
+      lunchTime = diffInHour(calculatedWorkStart, lunchEnd);
+    }
+  } else {
     lunchTime = 0;
   }
 
-  this.smartTime = workEnd.diff(workStart, 'hours', true) - lunchTime;
-  this.stupidTime = stupidTime1 + stupidTime2;
-};
+  this.smartTime = calculatedWorkEnd.diff(calculatedWorkStart, 'hours', true) - lunchTime;
+  this.stupidTime = stupidTimeBefore + stupidTimeAfter;
+}
+;
 
 PunchTime.prototype.isAfter = function (another) {
   return this.timeIn.isAfter(another.timeIn);

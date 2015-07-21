@@ -1,9 +1,18 @@
 'use strict';
 
 module.exports = {
-  entry: './app/scripts/report.js',
+  entry: {
+    report: './app/scripts/report.js'
+  },
   output: {
     path: __dirname + '/app',
-    filename: 'bundle.js'
+    publicPath: 'dist/',
+    filename: '[name].js',
+    chunkFilename: '[chunkhash].js'
+  },
+  module: {
+    loaders: [
+      { test: /\.json$/, loader: 'json-loader' }
+    ]
   }
 };

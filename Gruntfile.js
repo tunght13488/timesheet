@@ -21,6 +21,9 @@ module.exports = function (grunt) {
     dist: 'dist'
   };
 
+  var webpack = require('webpack');
+  var webpackConfig = require('./webpack.config.js');
+
   grunt.initConfig({
 
     // Project settings
@@ -59,6 +62,13 @@ module.exports = function (grunt) {
           '<%= config.app %>/manifest.json',
           '<%= config.app %>/_locales/{,*/}*.json'
         ]
+      },
+      app: {
+        files: ['app/**/*'],
+        tasks: ['webpack:build-dev'],
+        options: {
+          spawn: false
+        }
       }
     },
 
@@ -91,8 +101,7 @@ module.exports = function (grunt) {
 
     // Empties folders to start fresh
     clean: {
-      chrome: {
-      },
+      chrome: {},
       dist: {
         files: [{
           dot: true,
@@ -240,7 +249,7 @@ module.exports = function (grunt) {
             '{,*/}*.html',
             'styles/{,*/}*.css',
             'styles/fonts/{,*/}*.*',
-            '_locales/{,*/}*.json',
+            '_locales/{,*/}*.json'
           ]
         }]
       }
@@ -248,14 +257,12 @@ module.exports = function (grunt) {
 
     // Run some tasks in parallel to speed up build process
     concurrent: {
-      chrome: [
-      ],
+      chrome: [],
       dist: [
         'imagemin',
         'svgmin'
       ],
-      test: [
-      ]
+      test: []
     },
 
     // Auto buildnumber, exclude debug files. smart builds that event pages
@@ -280,7 +287,7 @@ module.exports = function (grunt) {
     compress: {
       dist: {
         options: {
-          archive: function() {
+          archive: function () {
             var manifest = grunt.file.readJSON('app/manifest.json');
             return 'package/timesheet-' + manifest.version + '.zip';
           }
@@ -291,6 +298,39 @@ module.exports = function (grunt) {
           src: ['**'],
           dest: ''
         }]
+      }
+    },
+
+    webpack: {
+      options: webpackConfig,
+      build: {
+        plugins: webpackConfig.plugins.concat(
+          new webpack.DefinePlugin({
+            'process.env': {
+              // This has effect on the react lib size
+              'NODE_ENV': JSON.stringify('production')
+            }
+          }),
+          new webpack.optimize.DedupePlugin(),
+          new webpack.optimize.UglifyJsPlugin()
+        )
+      },
+      'build-dev': {
+        devtool: 'sourcemap',
+        debug: true
+      }
+    },
+    'webpack-dev-server': {
+      options: {
+        webpack: webpackConfig,
+        publicPath: '/' + webpackConfig.output.publicPath
+      },
+      start: {
+        keepAlive: true,
+        webpack: {
+          devtool: 'eval',
+          debug: true
+        }
       }
     }
   });
@@ -310,6 +350,7 @@ module.exports = function (grunt) {
   ]);
 
   grunt.registerTask('build', [
+    'webpack:build',
     'clean:dist',
     'chromeManifest:dist',
     'useminPrepare',
@@ -322,7 +363,10 @@ module.exports = function (grunt) {
     'compress'
   ]);
 
+  grunt.registerTask('dev', ['webpack:build-dev', 'watch:app']);
+
   grunt.registerTask('default', [
+    'webpack-dev-server:start',
     'jshint',
     'test',
     'build'

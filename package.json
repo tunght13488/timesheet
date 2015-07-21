@@ -5,6 +5,7 @@
     "font-awesome": "^4.3.0",
     "jquery": "^2.1.4",
     "jquery.cookie": "^1.4.1",
+    "json-loader": "^0.5.2",
     "moment": "^2.10.3",
     "mustache": "^2.1.2",
     "promise-polyfill": "^2.1.0",
@@ -29,11 +30,13 @@
     "grunt-mocha": "~0.4.10",
     "grunt-svgmin": "~0.4.0",
     "grunt-usemin": "~2.1.0",
+    "grunt-webpack": "^1.0.11",
     "jshint-stylish": "~0.1.5",
     "load-grunt-tasks": "~0.4.0",
     "node-libs-browser": "^0.5.2",
     "time-grunt": "~0.3.1",
-    "webpack": "^1.10.1"
+    "webpack": "^1.10.1",
+    "webpack-dev-server": "^1.10.1"
   },
   "engines": {
     "node": ">=0.8.0"

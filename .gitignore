@@ -1,4 +1,4 @@
 node_modules/
 dist/
 package/
-app/bundle.js
+app/report.js

@@ -1,6 +1,7 @@
 'use strict';
 
-var $ = require('jquery'),
+var Promise = require('promise-polyfill'),
+  $ = require('jquery'),
   moment = require('moment'),
   Mustache = require('mustache'),
   Util = require('./util.js'),
@@ -24,65 +25,133 @@ function Timesheet(opts) {
   this.domain = null;
   this.times = [];
 
-  this
-    .getDomain()
-    .done(function (data) {
-      if (data.indexOf('<title>SmartHRM login</title>') > -1) {
-        $('#content').html('<h2><a target="_blank" href="' + this.domain + '">Click here</a> to login to HR first, then refresh this page.</h2>');
-      } else {
-        this.init();
-      }
-    }.bind(this))
+  var that = this;
 
-    .fail(function () {
-      $('#content').html('<h2>HR system is down! <a href="/report.html">Click here</a> to retry.</h2>');
-    });
+  var _showLoginOrStartProcessing = function (html) {
+    if (html.indexOf('<title>SmartHRM login</title>') > -1) {
+      $('#content').html('<h2><a target="_blank" href="' + that.domain + '">Click here</a> to login to HR first, then refresh this page.</h2>');
+    } else {
+      that.process();
+    }
+  };
+
+  var _showSystemDown = function () {
+    $('#content').html('<h2>HR system is down! <a href="/report.html">Click here</a> to retry.</h2>');
+  };
+
+  this.checkHrDomain()
+    .then(_showLoginOrStartProcessing)
+    .catch(_showSystemDown);
 }
 
-Timesheet.prototype.getDomain = function () {
-  var _this = this;
-  return $.ajax({
-    url: 'http://hr.smartosc.com',
-    timeout: 1000
-  })
-    .then(
-    function (data) {
-      _this.domain = 'http://hr.smartosc.com';
-      return data;
-    },
-    function () {
-      _this.domain = 'http://hrm.smartosc.com';
-      return $.ajax({
-        url: 'http://hrm.smartosc.com',
-        timeout: 10000
+Timesheet.prototype.checkHrDomain = function () {
+  var that = this,
+    hrUrl = 'http://hr.smartosc.com',
+    hrmUrl = 'http://hrm.smartosc.com';
+
+  var _checkUrlAvailability = function (url) {
+    return Promise.resolve($.ajax(url, {timeout: 5000}))
+      .then(function (html) {
+        that.domain = url;
+        return html;
       });
-    }
-  );
-};
-
-Timesheet.prototype.getUrl = function (path) {
-  return this.domain + path;
-};
-
-Timesheet.prototype.init = function () {
-  var _this = this;
-  var startTime = Util.get21LastMonth(_this.opts.month);
-  var chained = this.initPostData();
-  var processes = [];
-  var parseTimesheetDetail = function (table) {
-    _this.parseTimesheetDetail(table);
   };
-  while (moment().isAfter(startTime)) {
-    processes.push(
-      chained
-        .then(this.getTimesheetId(startTime))
-        .then(this.getTimesheetDetail.bind(this))
-        .then(parseTimesheetDetail)
-    );
-    startTime = Util.getNextMonday(startTime);
-  }
 
-  $.when.apply(null, processes).done(this.displayTimesheet.bind(this));
+  return _checkUrlAvailability(hrUrl)
+    .catch(function () {
+      return _checkUrlAvailability(hrmUrl);
+    });
+};
+
+Timesheet.prototype.process = function () {
+  var that = this,
+    startTime = Util.get21LastMonth(that.opts.month);
+  
+  console.log('processing');
+
+  var _processAllWeeks = function () {
+    var processes = [],
+      now = moment();
+
+    while (now.isAfter(startTime)) {
+      processes.push(
+        that.getTimesheetId(startTime)
+          .then(that.getTimesheetTable)
+          .then(that.parseTimesheetTable)
+      );
+
+      startTime = Util.getNextMonday(startTime);
+    }
+
+    return Promise.all(processes);
+  };
+  
+  this.getEmployeeId()
+    .then(function (employeeId) {
+      console.log(employeeId);
+    })
+    //.then(_processAllWeeks)
+    //.then(this.displayTimesheet)
+  ;
+};
+
+Timesheet.prototype.getEmployeeId = function () {
+  var that = this;
+
+  var _getEmployeeId = function (html) {
+    that.employeeId = $('<div/>').html(html).find('input[name="txtEmployeeId"]').val();
+  };
+
+  return Promise.resolve($.ajax(this.getTimesheetUrl()))
+    .then(function (html) {
+      console.log(html);
+    })
+    .then(_getEmployeeId);
+};
+
+Timesheet.prototype.getTimesheetId = function (startTime) {
+  var that = this;
+
+  var _postData = {
+    txtEmployeeId: this.employeeId,
+    txtTimesheetPeriodId: 1,
+    txtStartDate: Util.getFormattedMonday(startTime),
+    txtEndDate: Util.getFormattedSunday(startTime)
+  };
+
+  var jqueryPromise = $.ajax(that.getTimesheetUrl(), {method: 'POST', data: _postData});
+
+  var _getTimesheetId = function (html) {
+    return $('<div/>').html(html).find('#txtTimesheetId').val();
+  };
+
+  return Promise.resolve(jqueryPromise)
+    .then(_getTimesheetId);
+};
+
+Timesheet.prototype.getTimesheetTable = function (timesheetId) {
+  var jqueryPromise = $.ajax(this.getTimesheetUrl(timesheetId));
+
+  var _getTable = function (html) {
+    return $('<div/>').html(html).find('table');
+  };
+
+  return Promise.resolve(jqueryPromise)
+    .then(_getTable);
+};
+
+Timesheet.prototype.parseTimesheetTable = function (table) {
+  var that = this;
+
+  $(table).find('tbody tr')
+    .each(function () {
+      var $this = $(this),
+        timeIn = $this.find('td:nth-child(4)').html().trim(),
+        timeOut = $this.find('td:nth-child(5)').html().trim(),
+        punchTime = new PunchTime(timeIn, timeOut);
+
+      that.times.push(punchTime);
+    });
 };
 
 Timesheet.prototype.displayTimesheet = function () {
@@ -130,55 +199,16 @@ Timesheet.prototype.displayTimesheet = function () {
   content.html(rendered);
 };
 
-Timesheet.prototype.parseTimesheetDetail = function (table) {
-  var _this = this;
-  table.find('tbody tr').each(function () {
-    var timeIn = $(this).find('td:nth-child(4)').html().trim();
-    var timeOut = $(this).find('td:nth-child(5)').html().trim();
-    var punchTime = new PunchTime(timeIn, timeOut);
-    _this.times.push(punchTime);
-  });
+Timesheet.prototype.getTimesheetUrl = function (timesheetId) {
+  if (typeof timesheetId === 'undefined') {
+    return this.getUrl('/lib/controllers/CentralController.php?timecode=Time&action=View_Detail_Timesheet');
+  } else {
+    return this.getUrl('/lib/controllers/CentralController.php?timecode=Time&action=View_Detail_Timesheet&id=' + timesheetId);
+  }
 };
 
-Timesheet.prototype.initPostData = function () {
-  var _this = this;
-  return $.ajax({
-    url: _this.getUrl('/lib/controllers/CentralController.php?timecode=Time&action=View_Current_Timesheet')
-  })
-    .then(function (data) {
-      var dom = $('<div/>').html(data);
-      _this.employeeId = dom.find('input[name="txtEmployeeId"]').val();
-    });
-};
-
-Timesheet.prototype.getTimesheetId = function (fromDate) {
-  var _this = this;
-  return function () {
-    return $.ajax({
-      url: _this.getUrl('/lib/controllers/CentralController.php?timecode=Time&action=View_Timesheet'),
-      method: 'POST',
-      data: {
-        txtEmployeeId: _this.employeeId,
-        txtTimesheetPeriodId: 1,
-        txtStartDate: Util.getFormattedMonday(fromDate),
-        txtEndDate: Util.getFormattedSunday(fromDate)
-      }
-
-    })
-      .then(function (data) {
-        var dom = $('<div/>').html(data);
-        return dom.find('#txtTimesheetId').val();
-      });
-  };
-};
-
-Timesheet.prototype.getTimesheetDetail = function (timesheetId) {
-  return $.ajax({
-    url: this.getUrl('/lib/controllers/CentralController.php?timecode=Time&action=View_Detail_Timesheet&id=' + timesheetId)
-  })
-    .then(function (data) {
-      return $('<div/>').html(data).find('table');
-    });
+Timesheet.prototype.getUrl = function (path) {
+  return this.domain + path;
 };
 
 module.exports = Timesheet;
