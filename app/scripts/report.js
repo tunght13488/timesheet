@@ -70,10 +70,16 @@ var timesheet,
     var startTime = Util.get21LastMonth(_this.opts.month);
     var chained = this.initPostData();
     var processes = [];
+    var parseTimesheetDetail = function (table) {
+      _this.parseTimesheetDetail(table);
+    };
     while (moment().isAfter(startTime)) {
-      processes.push(chained.then(this.getTimesheetId(startTime)).then(this.getTimesheetDetail.bind(this)).then(function(table) {
-        _this.parseTimesheetDetail(table);
-      }));
+      processes.push(
+        chained
+          .then(this.getTimesheetId(startTime))
+          .then(this.getTimesheetDetail.bind(this))
+          .then(parseTimesheetDetail)
+      );
       startTime = Util.getNextMonday(startTime);
     }
 
