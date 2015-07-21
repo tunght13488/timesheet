@@ -21,9 +21,6 @@
   "globals" : {
     "chrome": true,
     "crypto": true,
-    "jQuery": false,
-    "moment": false,
-    "Mustache": false,
     /* MOCHA */
     "describe"   : false,
     "it"         : false,
